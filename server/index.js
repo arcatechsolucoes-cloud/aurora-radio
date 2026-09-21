@@ -57,6 +57,42 @@ async function main() {
     res.json(engine.state());
   });
 
+  // ingestão ao vivo a partir do navegador (locutor) — o áudio MP3 vai no corpo do POST
+  app.post('/live/ingest', (req, res) => {
+    const settings = store.getSettings();
+    const expectedUser = settings.liveUser || 'source';
+    const expectedPass = settings.livePass || 'livepass';
+    const header = req.headers.authorization || '';
+    let ok = false;
+    if (header.startsWith('Basic ')) {
+      const decoded = Buffer.from(header.slice(6), 'base64').toString('utf8');
+      const ci = decoded.indexOf(':');
+      ok = ci > 0 && decoded.slice(0, ci) === expectedUser && decoded.slice(ci + 1) === expectedPass;
+    }
+    if (!ok) {
+      res.set('WWW-Authenticate', 'Basic realm="live"');
+      return res.status(401).json({ error: 'Credenciais da fonte ao vivo inválidas' });
+    }
+    const name =
+      String(req.headers['x-live-name'] || '').slice(0, 80) || settings.stationName || 'Locutor (navegador)';
+    engine.startLive(name);
+    console.log('[ingest] locutor (navegador) ao vivo:', name);
+    res.writeHead(200, { 'Content-Type': 'text/plain', Connection: 'keep-alive' });
+    res.flushHeaders();
+    let ended = false;
+    const done = () => {
+      if (ended) return;
+      ended = true;
+      engine.stopLive();
+      console.log('[ingest] locutor (navegador) desconectado — AutoDJ retomando');
+    };
+    req.on('data', (c) => engine.incomingAudio(c));
+    req.on('end', done);
+    req.on('close', done);
+    req.on('error', done);
+    res.on('close', done);
+  });
+
   app.get('/listen', (req, res) => {
     res.sendFile(path.join(config.root, 'public', 'player.html'));
   });

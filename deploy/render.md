@@ -38,8 +38,17 @@ Pronto. Quando aparecer o domínio, a URL será `https://aurora-radio.onrender.c
 - Painel: `https://aurora-radio.onrender.com`
 - Player: `https://aurora-radio.onrender.com/listen`
 - Stream: `https://aurora-radio.onrender.com/stream`
-- Locutores: servidor `aurora-radio.onrender.com`, porta **80** (http), mount `/live`
-  - Usuário da fonte: `source` · Senha inicial: `k9$vT2mQpz` (**troque!** atualize em Config → Ao vivo)
+- **Locutor ao vivo**: use a aba **“Ao vivo → 🎙️ Transmitir do navegador”** do painel
+  (microfone → MP3 128 kbps → enviado pela internet, sem instalar nada).
+- Credenciais da fonte (também usadas no modo navegador): usuário `source` · senha `k9$vT2mQpz`
+  (**troque!** atualize em Config → Ao vivo).
+
+> ⚠️ **Programas como BUTT/Mixxx/RadioDJ não funcionam diretamente no Render free:**
+> o proxy do Render redireciona a porta 80 para HTTPS e rejeita o método `SOURCE` do Icecast (HTTP 405).
+> Por isso o painel tem o **locutor embutido no navegador**. Quem usa cliente com suporte a
+> **HTTPS + PUT** (shoutcast v2) pode enviar para `https://…/live` com as mesmas credenciais.
+> O fluxo Icecast nativo (`SOURCE`, porta 4000/80) funciona em provedores com porta aberta
+> (Fly, Oracle Cloud, VPS) — veja [fly.md](fly.md).
 
 ## 5. Primeiros passos pós-deploy
 

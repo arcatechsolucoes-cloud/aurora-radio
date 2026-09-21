@@ -90,15 +90,32 @@ Copie `.env.example` para `.env` e ajuste:
 
 ## Como os locutores transmitem ao vivo
 
+### Opção A — Direto do navegador (funciona em qualquer hospedagem)
+
+1. No painel → aba **Ao vivo** → **🎙️ Transmitir do navegador** → **Iniciar transmissão**.
+2. Permita o microfone: o áudio é codificado em **MP3 128 kbps** no próprio navegador (lamejs) e
+   enviado pela internet para o servidor (POST `/live/ingest`).
+3. Para parar: **Parar** — o AutoDJ retoma na hora.
+
+É a opção recomendada no **Render free**, onde o proxy bloqueia o método Icecast `SOURCE` (HTTP 405).
+
+### Opção B — Programa de locução (BUTT / Mixxx / RadioDJ)
+
 1. No painel → aba **Ao vivo**, copie servidor/porta/mount/usuário/senha.
-2. No programa do locutor (BUTT, Mixxx com streaming, RadioDJ) cadastre:
+2. No programa do locutor cadastre:
    - Endereço: `PUBLIC_HOST`, Porta: `STREAM_PORT`, Mount: `/live`
    - Usuário/senha da fonte ao vivo.
 3. Ao conectar, o painel mostra **Ao vivo**, o AutoDJ pausa e os ouvintes passam a receber a transmissão.
 4. Ao desconectar, o AutoDJ **retoma automaticamente**.
 
+> ⚠️ O Render free **não aceita** `SOURCE` (Icecast) — ele redireciona a porta 80 para HTTPS e responde
+> 405 para métodos não padrão. Em provedores com porta aberta (Fly, Oracle Cloud, VPS) o fluxo nativo
+> `SOURCE` funciona normalmente. No Render, um cliente com "shoutcast v2 / HTTPS + PUT" pode usar
+> `https://…/live`; os demais usam a **Opção A**.
+
 > **Nota v1:** o AutoDJ reproduz apenas arquivos **MP3** (o stream é MP3 direto para o navegador).
 > AAC/OGG/WAV podem ser enviados e usados como fonte ao vivo, mas não no AutoDJ ainda.
+> O locutor do navegador envia MP3, então é 100% compatível com o player.
 
 ## Estrutura do projeto
 

@@ -587,6 +587,134 @@ document.getElementById('addLocutorBtn').addEventListener('click', () => {
   });
 });
 
+// ---------- locutor no navegador ----------
+const bw = {
+  stream: null,
+  ctx: null,
+  proc: null,
+  enc: null,
+  writer: null,
+  live: false,
+};
+
+function audioChunksToInt16(chunk) {
+  const n = chunk.length;
+  const out = new Int16Array(n);
+  for (let i = 0; i < n; i++) {
+    const s = Math.max(-1, Math.min(1, chunk[i]));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return out;
+}
+
+async function bwStart() {
+  const startBtn = document.getElementById('bwStart');
+  const stopBtn = document.getElementById('bwStop');
+  const errEl = document.getElementById('bwError');
+  errEl.style.display = 'none';
+  if (!LIVE_INFO) {
+    try {
+      await loadLive();
+    } catch (_) {}
+  }
+  if (!LIVE_INFO) {
+    errEl.textContent = 'Não foi possível carregar as credenciais da fonte. Recarregue a página.';
+    errEl.style.display = 'block';
+    return;
+  }
+  try {
+    bw.stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+  } catch (e) {
+    errEl.textContent = 'Não foi possível acessar o microfone: ' + e.message;
+    errEl.style.display = 'block';
+    return;
+  }
+
+  bw.ctx = new (window.AudioContext || window.webkitAudioContext)();
+  const rate = bw.ctx.sampleRate;
+  bw.enc = new lamejs.Mp3Encoder(1, rate, 128);
+
+  // stream de upload contínuo via POST /live/ingest
+  const bodyStream = new ReadableStream({
+    start(controller) {
+      bw.writer = controller;
+    },
+  });
+
+  const base = btoa(LIVE_INFO.user + ':' + LIVE_INFO.pass);
+  const resp = await fetch('/live/ingest', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Basic ' + base,
+      'Content-Type': 'audio/mpeg',
+      'X-Live-Name': 'Locutor (navegador)',
+    },
+    body: bodyStream,
+  });
+  if (resp.status !== 200) {
+    bw.stream.getTracks().forEach((t) => t.stop());
+    errEl.textContent = 'Falha na conexão: HTTP ' + resp.status;
+    errEl.style.display = 'block';
+    return;
+  }
+  bw.live = true;
+
+  const source = bw.ctx.createMediaStreamSource(bw.stream);
+  bw.proc = bw.ctx.createScriptProcessor(4096, 1, 1);
+  bw.proc.onaudioprocess = (ev) => {
+    if (!bw.live || !bw.writer) return;
+    const int16 = audioChunksToInt16(ev.inputBuffer.getChannelData(0));
+    const mp3 = bw.enc.encodeBuffer(int16);
+    if (mp3.length > 0) {
+      try {
+        bw.writer.enqueue(mp3);
+      } catch (_) {}
+    }
+  };
+  const mute = bw.ctx.createGain();
+  mute.gain.value = 0;
+  source.connect(bw.proc);
+  bw.proc.connect(mute);
+  mute.connect(bw.ctx.destination);
+
+  startBtn.disabled = true;
+  stopBtn.disabled = false;
+  document.getElementById('bwTag').textContent = 'no ar';
+  document.getElementById('bwTag').className = 'tag on';
+  document.getElementById('bwStatus').textContent = 'transmitindo';
+  toast('🎙️ Locutor no ar!');
+}
+
+async function bwStop() {
+  document.getElementById('bwStart').disabled = false;
+  document.getElementById('bwStop').disabled = true;
+  bw.live = false;
+  if (bw.enc) {
+    const end = bw.enc.flush();
+    if (end.length > 0 && bw.writer) {
+      try {
+        bw.writer.enqueue(end);
+        bw.writer.close();
+      } catch (_) {}
+    }
+  }
+  if (bw.proc) bw.proc.disconnect();
+  if (bw.stream) bw.stream.getTracks().forEach((t) => t.stop());
+  if (bw.ctx) bw.ctx.close().catch(() => {});
+  bw.proc = null;
+  bw.enc = null;
+  bw.writer = null;
+  bw.stream = null;
+  bw.ctx = null;
+  document.getElementById('bwTag').textContent = 'parado';
+  document.getElementById('bwTag').className = 'tag';
+  document.getElementById('bwStatus').textContent = 'desconectado';
+  toast('Transmissão encerrada — AutoDJ retomou');
+}
+
+document.getElementById('bwStart').addEventListener('click', bwStart);
+document.getElementById('bwStop').addEventListener('click', bwStop);
+
 // ---------- estatísticas ----------
 async function loadStats() {
   try {

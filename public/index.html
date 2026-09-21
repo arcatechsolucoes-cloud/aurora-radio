@@ -170,7 +170,7 @@
     <!-- LIVE -->
     <section class="view" data-view="live">
       <div class="view-head">
-        <div><h1 class="view-title">Fonte ao vivo</h1><div class="view-sub">Conecte seu programa de transmissão (BUTT, Mixxx, RadioDJ, etc.) pelo protocolo Icecast</div></div>
+        <div><h1 class="view-title">Fonte ao vivo</h1><div class="view-sub">Conecte pelo computador (BUTT / Mixxx / RadioDJ) ou transmita <b>diretamente do navegador</b> abaixo</div></div>
       </div>
       <div class="dash-grid" style="grid-template-columns: 1fr 1fr;">
         <div class="panel">
@@ -189,6 +189,16 @@
           <ul class="mini-list" id="locutorList"><li><span>—</span></li></ul>
           <div style="margin-top:14px;" data-admin="1"><button class="btn ghost sm" id="addLocutorBtn">+ Adicionar locutor</button></div>
         </div>
+      </div>
+      <div class="panel" style="margin-top:16px;">
+        <p class="panel-label"><span>🎙️ Transmitir do navegador</span><span class="tag" id="bwTag">parado</span></p>
+        <p class="hint" style="margin-bottom:12px;">Use o microfone deste computador para entrar no ar sem instalar nada. O áudio é convertido para MP3 128 kbps e enviado pela internet (funciona também no Render).</p>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+          <button class="btn primary" id="bwStart">Iniciar transmissão</button>
+          <button class="btn stop" id="bwStop" disabled>Parar</button>
+          <span class="tag" id="bwStatus">desconectado</span>
+        </div>
+        <p class="hint" id="bwError" style="margin-top:10px;color:var(--danger);display:none;"></p>
       </div>
     </section>
 
@@ -279,6 +289,7 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<script src="/vendor/lame.min.js"></script>
 <script src="/app.js"></script>
 </body>
 </html>

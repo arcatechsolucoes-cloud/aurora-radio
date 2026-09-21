@@ -127,10 +127,17 @@ async function main() {
   });
 
   const server = http.createServer((req, res) => {
-    // fonte ao vivo (protocolo Icecast) embutida na mesma porta do painel
+    // fonte ao vivo (protocolo Icecast) embutida na mesma porta do painel.
+    // IMPORTANTE: só intercepta SOURCE/PUT apontando para os mounts de fonte
+    // (/live ou /stream). Os demais PUTs seguem para o Express (ex.: PUT /api/settings,
+    // PUT /api/streams/config do painel) — antes, TODO PUT era engolido aqui.
     const method = (req.method || '').toUpperCase();
     if (method === 'SOURCE' || method === 'PUT') {
-      return handleSourceRequest(engine, store)(req, res);
+      const m = ((req.url || '').match(/^\/([^\s?]*)/) || [])[1];
+      const mount = m ? '/' + m : '/live';
+      if (mount === '/live' || mount === '/stream') {
+        return handleSourceRequest(engine, store)(req, res);
+      }
     }
     app(req, res);
   });

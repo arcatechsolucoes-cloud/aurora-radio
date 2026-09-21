@@ -46,8 +46,27 @@ module.exports = function createApi(engine) {
   }
 
   // ---------- tipos de mídia ----------
-  const MEDIA_TYPES = ['musica', 'vinheta', 'programete', 'hora_certa'];
+  const MEDIA_TYPES = ['musica', 'vinheta', 'programete', 'hora_certa', 'comercial'];
   const normType = (t) => (MEDIA_TYPES.includes(String(t)) ? String(t) : 'musica');
+
+  // blocos de programação: music/vinheta = automáticos; programete/comercial/hora_certa = item fixo
+  const SLOT_TYPES = ['music', 'vinheta', 'programete', 'comercial', 'hora_certa'];
+  const MANUAL_SLOTS = ['programete', 'comercial', 'hora_certa'];
+  function normSlots(arr) {
+    const out = [];
+    if (!Array.isArray(arr)) return out;
+    for (const s of arr) {
+      const type = String((s && s.type) || '');
+      if (!SLOT_TYPES.includes(type)) continue;
+      if (MANUAL_SLOTS.includes(type)) {
+        if (!s.id) continue; // bloco fixo sem arquivo não faz sentido
+        out.push({ type, id: String(s.id) });
+      } else {
+        out.push({ type }); // automático
+      }
+    }
+    return out;
+  }
 
   // ---------- upload de mídia ----------
   const storage = multer.diskStorage({
@@ -160,6 +179,7 @@ module.exports = function createApi(engine) {
       name: String(b.name).slice(0, 80),
       shuffle: !!b.shuffle,
       trackIds: Array.isArray(b.trackIds) ? b.trackIds : [],
+      slots: b.slots !== undefined ? normSlots(b.slots) : undefined, // programação por blocos (opcional)
     };
     store.getPlaylists().push(playlist);
     store.save();
@@ -173,6 +193,7 @@ module.exports = function createApi(engine) {
     if (b.name !== undefined) p.name = String(b.name).slice(0, 80);
     if (b.shuffle !== undefined) p.shuffle = !!b.shuffle;
     if (Array.isArray(b.trackIds)) p.trackIds = b.trackIds;
+    if (b.slots !== undefined) p.slots = normSlots(b.slots);
     store.save();
     res.json(p);
   });

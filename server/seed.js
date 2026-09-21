@@ -147,10 +147,35 @@ function run() {
         file: 'anuncio-culto.mp3',
         uploadedAt: agora,
       },
+      {
+        id: 'm_comercial',
+        title: 'Comercial — Padaria Estrela',
+        type: 'comercial',
+        format: 'MP3',
+        duration: '0:30',
+        size: 0.7,
+        file: 'comercial-padaria.mp3',
+        uploadedAt: agora,
+      },
     ];
-    // exemplo de sequência programada (música → hora certa → música → vinheta → programete)
-    db.playlists[0].trackIds = ['m_vinheta', 'm_espirito', 'm_hora', 'm_cordeiro', 'm_vinheta', 'm_anuncio'];
-    db.playlists[0].shuffle = false;
+    // exemplo de programação por blocos:
+    // música e vinheta são preenchidas AUTOMATICAMENTE (aleatório); só os itens
+    // programetes, comerciais e hora certa são marcados na posição pelo usuário.
+    db.playlists[0] = {
+      id: 'p_manha',
+      name: 'Louvor Manhã',
+      shuffle: false,
+      trackIds: [],
+      slots: [
+        { type: 'music' }, // música aleatória da categoria Música
+        { type: 'vinheta' }, // vinheta aleatória da categoria Vinheta
+        { type: 'music' },
+        { type: 'programete', id: 'm_anuncio' },
+        { type: 'comercial', id: 'm_comercial' },
+        { type: 'music' },
+        { type: 'hora_certa', id: 'm_hora' },
+      ],
+    };
   }
 
   store.save(true);

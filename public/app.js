@@ -275,9 +275,63 @@ function renderPlaylist() {
     return;
   }
   title.textContent = CURRENT_PLAYLIST.name;
-  document.getElementById('playlistMode').innerHTML = `modo aleatório <span class="toggle ${CURRENT_PLAYLIST.shuffle ? 'on' : ''}" id="shuffleToggle" style="margin-left:8px;vertical-align:middle;"><i></i></span>`;
 
   const byId = new Map(libraryCache.map((m) => [String(m.id), m]));
+  const slots = Array.isArray(CURRENT_PLAYLIST.slots) ? CURRENT_PLAYLIST.slots : null;
+  const isPattern = !!(slots && slots.length > 0);
+
+  if (isPattern) {
+    // programação por blocos: música/vinheta automáticas + itens programados
+    document.getElementById('playlistMode').textContent = 'programação em ordem (música e vinheta automáticas)';
+    const rowsEl = slots
+      .map((slot, i) => {
+        const st = slot && slot.type;
+        let ttl = '';
+        let tag = '';
+        let dur = '';
+        if (st === 'music') {
+          ttl = '🎵 Música aleatória';
+          tag = 'automática';
+          dur = '';
+        } else if (st === 'vinheta') {
+          ttl = '🎶 Vinheta aleatória';
+          tag = 'automática';
+          dur = '';
+        } else {
+          const m = slot.id ? byId.get(String(slot.id)) : null;
+          ttl = m ? m.title : (st || 'Bloco');
+          tag = typeLabel(st);
+          dur = m ? m.duration : '';
+        }
+        return `<div class="track-row">
+          <span class="track-idx">${String(i + 1).padStart(2, '0')}</span>
+          <span style="display:flex;align-items:center;gap:8px;min-width:0;"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(ttl)}</span>${tag ? `<span class="track-type-tag">${esc(tag)}</span>` : ''}</span>
+          <span class="track-dur">${esc(dur)}</span>
+          <button class="icon-btn danger remove-slot" data-i="${i}" title="Remover bloco"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>`;
+      })
+      .join('');
+    document.getElementById('playlistTracks').innerHTML =
+      rowsEl ||
+      '<div class="field" style="padding:10px 0;"><span class="hint">Playlist vazia — use "Programar sequência" para montar a programação.</span></div>';
+    document.querySelectorAll('.remove-slot').forEach((el) => {
+      el.addEventListener('click', async () => {
+        const i = +el.dataset.i;
+        CURRENT_PLAYLIST.slots.splice(i, 1);
+        await api('/playlists/' + CURRENT_PLAYLIST.id, {
+          method: 'PATCH',
+          body: JSON.stringify({ slots: CURRENT_PLAYLIST.slots }),
+        });
+        loadPlaylists();
+        toast('Bloco removido');
+      });
+    });
+    return;
+  }
+
+  // sequência tradicional (legado)
+  document.getElementById('playlistMode').innerHTML = `modo aleatório <span class="toggle ${CURRENT_PLAYLIST.shuffle ? 'on' : ''}" id="shuffleToggle" style="margin-left:8px;vertical-align:middle;"><i></i></span>`;
+
   const rows = CURRENT_PLAYLIST.trackIds
     .map((id, i) => byId.get(String(id)))
     .filter(Boolean)
@@ -321,21 +375,55 @@ async function toggleShuffle() {
   renderPlaylist();
 }
 
-// ---------- programador de sequência (construtor de playlist) ----------
+// ---------- programador de programação (blocos fixos + automáticos) ----------
+// converte playlist antiga (trackIds) em blocos, pelo tipo de cada mídia
+const legacyToSlots = (playlist) =>
+  (playlist.trackIds || [])
+    .map((id) => {
+      const m = libraryCache.find((x) => String(x.id) === String(id));
+      if (!m) return null;
+      const t = normType(m.type);
+      if (t === 'musica') return { type: 'music' };
+      if (t === 'vinheta') return { type: 'vinheta' };
+      return { type: t, id: m.id }; // programete / hora_certa / comercial
+    })
+    .filter(Boolean);
+
+const AUTO_BLOCKS = [
+  { type: 'music', label: '＋ 🎵 Música (aleatória)' },
+  { type: 'vinheta', label: '＋ 🎶 Vinheta (aleatória)' },
+];
+
+// só as categorias que o usuário programa na mão (música e vinheta são automáticas)
+const MANUAL_TYPES = MEDIA_TYPES.filter((t) => t.id !== 'musica' && t.id !== 'vinheta');
+
+function slotLabel(slot, byId) {
+  const st = slot && slot.type;
+  if (st === 'music') return { ttl: '🎵 Música aleatória', tag: 'automática', dur: '' };
+  if (st === 'vinheta') return { ttl: '🎶 Vinheta aleatória', tag: 'automática', dur: '' };
+  const m = slot && slot.id ? byId.get(String(slot.id)) : null;
+  return { ttl: m ? m.title : st || 'Bloco', tag: typeLabel(st), dur: m ? m.duration : '' };
+}
+
 function openSequencer(opts) {
-  const { title = 'Programar sequência', playlistName = '', initialIds = [], saveLabel = 'Salvar playlist', onSave } = opts || {};
+  const { title = 'Programar programação', playlistName = '', initialSlots = [], saveLabel = 'Salvar programação', onSave } = opts || {};
   const box = openModal(`
     <h3>${esc(title)}</h3>
     <div class="field"><label>Nome da playlist</label><input id="seqName" type="text" value="${esc(playlistName)}" placeholder="Ex.: Programação da Manhã"></div>
-    <div class="field"><label>Tipos</label><div class="chip-row" id="seqChips" style="margin:0;"></div></div>
     <div class="seq-wrap">
       <div class="seq-pane">
-        <h4>Biblioteca <span style="opacity:.6" id="seqLibCount"></span></h4>
+        <h4>Blocos automáticos</h4>
+        <div style="display:flex;flex-direction:column;gap:6px;" id="autoBlocks">
+          ${AUTO_BLOCKS.map((b) => `<button class="chip" data-t="${b.type}" style="text-align:left;">${esc(b.label)}</button>`).join('')}
+        </div>
+        <p class="hint" style="margin:10px 0 4px;">Eles tocam <b>qualquer faixa da categoria</b>, sorteada a cada execução — você não escolhe a música nem a vinheta.</p>
+        <h4 style="margin-top:16px;">Você programa na mão:</h4>
+        <div class="chip-row" id="seqChips" style="margin:0 0 8px;"></div>
         <div id="seqLibList"><div class="seq-empty">Carregando…</div></div>
       </div>
       <div class="seq-pane">
-        <h4>Sequência <span style="opacity:.6" id="seqCount">0 faixas</span></h4>
-        <div id="seqList"><div class="seq-empty">Clique em <b>+</b> nas faixas da biblioteca ao lado para montar a ordem. Use ↑ ↓ para reordenar.</div></div>
+        <h4>Programação <span style="opacity:.6" id="seqCount">0 blocos</span></h4>
+        <div id="seqList"><div class="seq-empty">Monte a ordem: adicione blocos automáticos (música/vinheta) e itens específicos (programetes, comerciais, hora certa). Use ↑ ↓ para reordenar.</div></div>
       </div>
     </div>
     <div class="form-actions" style="margin-top:16px;">
@@ -344,14 +432,16 @@ function openSequencer(opts) {
     </div>`);
   box.classList.add('modal--wide');
 
-  const state = { filter: 'all', ids: initialIds.slice() };
+  const state = {
+    filter: MANUAL_TYPES[0] ? MANUAL_TYPES[0].id : 'programete',
+    slots: initialSlots.slice(),
+  };
 
   const renderChips = () => {
-    const chips = [{ id: 'all', label: 'Todas' }, ...MEDIA_TYPES]
-      .map((t) => `<button class="chip ${state.filter === t.id ? 'on' : ''}" data-f="${esc(t.id)}">${esc(t.label)}</button>`)
-      .join('');
     const row = document.getElementById('seqChips');
-    row.innerHTML = chips;
+    row.innerHTML = MANUAL_TYPES.map(
+      (t) => `<button class="chip ${state.filter === t.id ? 'on' : ''}" data-f="${esc(t.id)}">${esc(t.label)}</button>`
+    ).join('');
     row.querySelectorAll('.chip').forEach((el) => {
       el.addEventListener('click', () => {
         state.filter = el.dataset.f;
@@ -362,19 +452,18 @@ function openSequencer(opts) {
   };
 
   const renderLib = () => {
-    const list = libraryCache.filter((m) => state.filter === 'all' || normType(m.type) === state.filter);
-    document.getElementById('seqLibCount').textContent = list.length ? `(${list.length})` : '';
+    const list = libraryCache.filter((m) => normType(m.type) === state.filter);
     const el = document.getElementById('seqLibList');
     if (list.length === 0) {
-      el.innerHTML = '<div class="seq-empty">Nenhuma faixa nesta categoria. Envie músicas, vinhetas, programetes e hora certa na aba Mídia.</div>';
+      el.innerHTML = `<div class="seq-empty">Nenhum ${typeLabel(state.filter).toLowerCase()} na biblioteca. Envie na aba Mídia (tipo ${typeLabel(state.filter)}).</div>`;
       return;
     }
     el.innerHTML = list
       .map(
         (m) => `<div class="seq-item">
           <span class="idx">${esc(typeLabel(m.type))}</span>
-          <span class="ttl">${esc(m.title)}<span style="color:var(--text-3);font-family:var(--font-mono);font-size:11px;margin-left:8px;">${esc(m.duration)}</span></span>
-          <button class="add-one" data-id="${esc(m.id)}" title="Adicionar à sequência">+</button>
+          <span class="ttl">${esc(m.title)}<span class="dur">${esc(m.duration)}</span></span>
+          <button class="add-one" data-id="${esc(m.id)}" title="Adicionar à programação">+</button>
         </div>`
       )
       .join('');
@@ -382,7 +471,7 @@ function openSequencer(opts) {
       btn.addEventListener('click', () => {
         const m = libraryCache.find((x) => String(x.id) === String(btn.dataset.id));
         if (!m) return;
-        state.ids.push(m.id);
+        state.slots.push({ type: normType(m.type), id: m.id });
         renderSeq();
         toast('Adicionado: ' + m.title);
       });
@@ -392,22 +481,21 @@ function openSequencer(opts) {
   const renderSeq = () => {
     const byId = new Map(libraryCache.map((m) => [String(m.id), m]));
     const el = document.getElementById('seqList');
-    document.getElementById('seqCount').textContent = state.ids.length + (state.ids.length === 1 ? ' faixa' : ' faixas');
-    if (state.ids.length === 0) {
-      el.innerHTML = '<div class="seq-empty">Sequência vazia.</div>';
+    document.getElementById('seqCount').textContent = state.slots.length + (state.slots.length === 1 ? ' bloco' : ' blocos');
+    if (state.slots.length === 0) {
+      el.innerHTML = '<div class="seq-empty">Programação vazia.</div>';
       return;
     }
-    el.innerHTML = state.ids
-      .map((id, i) => {
-        const m = byId.get(String(id));
-        if (!m) return '';
+    el.innerHTML = state.slots
+      .map((slot, i) => {
+        const { ttl, tag, dur } = slotLabel(slot, byId);
         return `<div class="seq-item">
           <span class="idx">${String(i + 1).padStart(2, '0')}</span>
-          <span class="ttl">${esc(m.title)}</span>
-          <span class="dur">${esc(m.duration)}</span>
+          <span class="ttl">${esc(ttl)}${tag ? `<span class="track-type-tag" style="margin-left:8px;">${esc(tag)}</span>` : ''}</span>
+          <span class="dur">${esc(dur)}</span>
           <span style="display:inline-flex;gap:4px;white-space:nowrap;">
             <button class="seq-tool up ${i === 0 ? 'off' : ''}" data-i="${i}" title="Subir">↑</button>
-            <button class="seq-tool down ${i === state.ids.length - 1 ? 'off' : ''}" data-i="${i}" title="Descer">↓</button>
+            <button class="seq-tool down ${i === state.slots.length - 1 ? 'off' : ''}" data-i="${i}" title="Descer">↓</button>
             <button class="seq-tool danger rm" data-i="${i}" title="Remover">✕</button>
           </span>
         </div>`;
@@ -417,7 +505,7 @@ function openSequencer(opts) {
     el.querySelectorAll('.down').forEach((b) => b.addEventListener('click', () => seqMove(+b.dataset.i, 1)));
     el.querySelectorAll('.rm').forEach((b) =>
       b.addEventListener('click', () => {
-        state.ids.splice(+b.dataset.i, 1);
+        state.slots.splice(+b.dataset.i, 1);
         renderSeq();
       })
     );
@@ -425,10 +513,20 @@ function openSequencer(opts) {
 
   const seqMove = (i, dir) => {
     const j = i + dir;
-    if (j < 0 || j >= state.ids.length) return;
-    [state.ids[i], state.ids[j]] = [state.ids[j], state.ids[i]];
+    if (j < 0 || j >= state.slots.length) return;
+    [state.slots[i], state.slots[j]] = [state.slots[j], state.slots[i]];
     renderSeq();
   };
+
+  // botões de bloco automático (música/vinheta)
+  document.getElementById('autoBlocks').querySelectorAll('.chip').forEach((el) => {
+    el.addEventListener('click', () => {
+      const b = AUTO_BLOCKS.find((x) => x.type === el.dataset.t);
+      state.slots.push({ type: el.dataset.t });
+      renderSeq();
+      toast('Bloco adicionado: ' + b.label.replace('＋ ', ''));
+    });
+  });
 
   renderChips();
   renderLib();
@@ -437,11 +535,11 @@ function openSequencer(opts) {
   document.getElementById('seqOk').addEventListener('click', async () => {
     const name = document.getElementById('seqName').value.trim();
     if (!name) return toast('Informe o nome da playlist');
-    if (state.ids.length === 0) return toast('Adicione pelo menos uma faixa à sequência');
+    if (state.slots.length === 0) return toast('Adicione pelo menos um bloco à programação');
     const okBtn = document.getElementById('seqOk');
     okBtn.disabled = true;
     try {
-      await onSave(name, state.ids.slice());
+      await onSave(name, state.slots.slice());
       closeModal();
       await loadPlaylists();
       toast('Playlist salva');
@@ -456,12 +554,12 @@ document.getElementById('newPlaylistBtn').addEventListener('click', () => {
   openSequencer({
     title: 'Nova playlist programada',
     playlistName: '',
-    initialIds: [],
+    initialSlots: [],
     saveLabel: 'Criar playlist',
-    onSave: async (name, ids) => {
+    onSave: async (name, slots) => {
       const p = await api('/playlists', {
         method: 'POST',
-        body: JSON.stringify({ name, shuffle: false, trackIds: ids }),
+        body: JSON.stringify({ name, shuffle: false, trackIds: [], slots }),
       });
       CURRENT_PLAYLIST = p;
     },
@@ -470,18 +568,23 @@ document.getElementById('newPlaylistBtn').addEventListener('click', () => {
 
 document.getElementById('programOrderBtn').addEventListener('click', () => {
   if (!CURRENT_PLAYLIST) return toast('Selecione uma playlist primeiro');
+  const existing =
+    Array.isArray(CURRENT_PLAYLIST.slots) && CURRENT_PLAYLIST.slots.length > 0
+      ? CURRENT_PLAYLIST.slots
+      : legacyToSlots(CURRENT_PLAYLIST);
   openSequencer({
-    title: 'Programar sequência — ' + CURRENT_PLAYLIST.name,
+    title: 'Programar — ' + CURRENT_PLAYLIST.name,
     playlistName: CURRENT_PLAYLIST.name,
-    initialIds: CURRENT_PLAYLIST.trackIds || [],
-    saveLabel: 'Salvar sequência',
-    onSave: async (name, ids) => {
+    initialSlots: existing,
+    saveLabel: 'Salvar programação',
+    onSave: async (name, slots) => {
       await api('/playlists/' + CURRENT_PLAYLIST.id, {
         method: 'PATCH',
-        body: JSON.stringify({ name, shuffle: false, trackIds: ids }),
+        body: JSON.stringify({ name, shuffle: false, trackIds: [], slots }),
       });
       CURRENT_PLAYLIST.name = name;
-      CURRENT_PLAYLIST.trackIds = ids;
+      CURRENT_PLAYLIST.slots = slots;
+      CURRENT_PLAYLIST.trackIds = [];
       CURRENT_PLAYLIST.shuffle = false;
     },
   });
@@ -518,7 +621,15 @@ document.getElementById('deletePlaylistBtn').addEventListener('click', async () 
   toast('Playlist excluída');
 });
 
-document.getElementById('addTrackBtn').addEventListener('click', openTrackPicker);
+document.getElementById('addTrackBtn').addEventListener('click', () => {
+  if (!CURRENT_PLAYLIST) return toast('Selecione uma playlist primeiro');
+  // playlists por blocos: "Adicionar faixas" abre o programador
+  if (Array.isArray(CURRENT_PLAYLIST.slots) && CURRENT_PLAYLIST.slots.length > 0) {
+    document.getElementById('programOrderBtn').click();
+    return;
+  }
+  openTrackPicker();
+});
 
 async function openTrackPicker() {
   if (!CURRENT_PLAYLIST) return toast('Selecione uma playlist primeiro');
@@ -558,6 +669,7 @@ const MEDIA_TYPES = [
   { id: 'vinheta', label: 'Vinheta' },
   { id: 'programete', label: 'Programete' },
   { id: 'hora_certa', label: 'Hora certa' },
+  { id: 'comercial', label: 'Comercial' },
 ];
 const normType = (t) => (MEDIA_TYPES.some((x) => x.id === t) ? t : 'musica');
 const typeLabel = (t) => (MEDIA_TYPES.find((x) => x.id === t) || {}).label || 'Música';

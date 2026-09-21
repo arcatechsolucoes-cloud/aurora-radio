@@ -88,6 +88,67 @@ class StreamEngine extends EventEmitter {
     return bag;
   }
 
+  // ---------- programação por blocos (música/vinheta automáticas + itens fixos) ----------
+  _plPattern(playlist) {
+    return !!(playlist && Array.isArray(playlist.slots) && playlist.slots.length > 0);
+  }
+
+  _mediaById() {
+    const byId = new Map();
+    for (const m of this.store.getMedia()) byId.set(String(m.id), m);
+    return byId;
+  }
+
+  _playable(m) {
+    if (!m) return false;
+    if (m.format && String(m.format).toUpperCase() !== 'MP3') return false; // v1: só MP3 no AutoDJ
+    return fs.existsSync(path.join(config.uploadsDir, m.file));
+  }
+
+  _demoTrack() {
+    if (!fs.existsSync(config.demoFile)) return null;
+    return {
+      meta: {
+        id: 'demo',
+        title: 'Aurora FM — Abertura (demo)',
+        duration: '0:03',
+        file: 'aurora-demo.mp3',
+        format: 'MP3',
+      },
+      path: config.demoFile,
+    };
+  }
+
+  // blocos: { type: 'music'|'vinheta' } = aleatório da categoria;
+  //         { type: 'programete'|'comercial'|'hora_certa', id } = item específico
+  _nextPatternTrack(playlist) {
+    const slots = playlist.slots;
+    const byId = this._mediaById();
+    const media = this.store.getMedia();
+    const total = slots.length;
+    for (let k = 0; k < total; k++) {
+      const idx = (this._autoIndex + k) % total;
+      const slot = slots[idx] || {};
+      const st = String(slot.type || '');
+      let m = null;
+      if (st === 'music' || st === 'vinheta') {
+        // escolhe aleatoriamente a faixa da categoria (música/vinheta)
+        const cat = st === 'music' ? 'musica' : 'vinheta';
+        const pool = media.filter((x) => String(x.type || '') === cat && this._playable(x));
+        if (pool.length > 0) m = pool[Math.floor(Math.random() * pool.length)];
+      } else {
+        // bloco fixo: programete, comercial ou hora certa específicos
+        m = slot.id ? byId.get(String(slot.id)) : null;
+        if (m && !this._playable(m)) m = null;
+      }
+      if (m) {
+        this._autoIndex = idx + 1; // próximo bloco na próxima chamada
+        return { meta: m, path: path.join(config.uploadsDir, m.file) };
+      }
+    }
+    return null;
+  }
+
   _selectedPlaylist() {
     const cfg = this.store.getSettings();
     const id = cfg.autodjPlaylistId;
@@ -140,6 +201,14 @@ class StreamEngine extends EventEmitter {
   _nextTrack() {
     const playlist = this._selectedPlaylist();
     const shuffle = !!(playlist && playlist.shuffle);
+
+    // programação por blocos (música/vinheta automáticas + itens programados)
+    if (this._plPattern(playlist)) {
+      const t = this._nextPatternTrack(playlist);
+      if (t) return t;
+      return this._demoTrack(); // qualquer coisa na biblioteca? se não, demo mantém no ar
+    }
+
     const files = this._playlistFiles(playlist);
     if (files.length === 0) return null;
 
@@ -312,7 +381,24 @@ class StreamEngine extends EventEmitter {
   }
 
   _queuePreview(playlist) {
-    // usa as mesmas faixas realmente tocáveis do AutoDJ
+    // programação por blocos: mostra os próximos blocos programados
+    if (this._plPattern(playlist)) {
+      const byId = this._mediaById();
+      const slots = playlist.slots;
+      const out = [];
+      for (let i = 0; i < slots.length && out.length < 3; i++) {
+        const slot = slots[(this._autoIndex + i) % slots.length] || {};
+        const st = String(slot.type || '');
+        if (st === 'music') out.push({ title: '🎵 Música aleatória', duration: '' });
+        else if (st === 'vinheta') out.push({ title: '🎶 Vinheta aleatória', duration: '' });
+        else {
+          const m = slot.id ? byId.get(String(slot.id)) : null;
+          out.push({ title: m ? m.title : (st || 'Bloco'), duration: m ? m.duration : '' });
+        }
+      }
+      return out;
+    }
+    // sequência tradicional: usa as mesmas faixas realmente tocáveis do AutoDJ
     const files = this._playlistFiles(playlist);
     const out = [];
     let n = 0;

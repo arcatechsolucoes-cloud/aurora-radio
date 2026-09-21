@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Entrar — Console da rádio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="login-shell">
+  <div class="login-card">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div>
+        <div class="brand-text">Rádio Aurora FM</div>
+        <div class="brand-sub">console · painel da rádio</div>
+      </div>
+    </div>
+    <form id="loginForm" style="display:flex;flex-direction:column;gap:14px;">
+      <div class="field">
+        <label for="username">Usuário</label>
+        <input id="username" name="username" type="text" autocomplete="username" required autofocus>
+      </div>
+      <div class="field">
+        <label for="password">Senha</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+      </div>
+      <div class="login-error" id="loginError"></div>
+      <button class="btn primary" type="submit" style="padding:11px;">Entrar no console</button>
+      <div class="login-error" style="min-height:auto;">
+        <a href="/listen" style="color:var(--text-3);font-size:12px;text-decoration:none;">→ Ouvir a rádio ao vivo</a>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+const form = document.getElementById('loginForm');
+const errorEl = document.getElementById('loginError');
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  errorEl.textContent = 'Conectando…';
+  const fd = new FormData(form);
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: fd.get('username'), password: fd.get('password') }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Falha ao entrar');
+    location.href = '/';
+  } catch (err) {
+    errorEl.textContent = err.message;
+  }
+});
+</script>
+</body>
+</html>

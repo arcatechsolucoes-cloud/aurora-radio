@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rádio Aurora FM — Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="shell">
+
+  <header class="topbar">
+    <div class="brand" id="brandBtn">
+      <div class="brand-mark"></div>
+      <div>
+        <div class="brand-text" id="stationNameTop">Rádio Aurora FM</div>
+        <div class="brand-sub">console · painel da rádio</div>
+      </div>
+    </div>
+    <div class="status-cluster">
+      <div class="listener-readout"><b id="hdrListeners">0</b> ouvintes</div>
+      <div class="onair-pill" id="onairPill"><span class="dot"></span><span id="onairText">Fora do ar</span></div>
+      <div class="avatar" id="avatarBox" title="Sair">?</div>
+      <button class="btn ghost sm" id="logoutBtn" title="Sair da conta" style="padding:6px 10px;">Sair</button>
+    </div>
+  </header>
+
+  <nav class="nav" id="navRail">
+    <button class="nav-btn active" data-view="dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg><span class="lbl">Painel</span></button>
+    <button class="nav-btn" data-view="stream"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 16 0"/><path d="M7.5 12a4.5 4.5 0 0 1 9 0"/><circle cx="12" cy="12" r="1.4"/></svg><span class="lbl">Stream</span></button>
+    <button class="nav-btn" data-view="autodj"><svg viewBox="0 0 24 24"><path d="M4 14V6l12-2v8"/><circle cx="6" cy="17" r="2.4"/><circle cx="16" cy="14.5" r="2.4"/></svg><span class="lbl">AutoDJ</span></button>
+    <button class="nav-btn" data-view="live"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="13" height="10" rx="1.5"/><path d="M16 10.5 21 8v8l-5-2.5"/></svg><span class="lbl">Ao vivo</span></button>
+    <button class="nav-btn" data-view="stats"><svg viewBox="0 0 24 24"><path d="M4 20V10"/><path d="M12 20V4"/><path d="M20 20v-7"/></svg><span class="lbl">Stats</span></button>
+    <button class="nav-btn" data-view="media"><svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg><span class="lbl">Mídia</span></button>
+    <button class="nav-btn" data-view="users" data-admin="1"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><circle cx="18" cy="9" r="2.4"/><path d="M15.5 14.3c2.6.4 4.5 2.6 4.5 5.7"/></svg><span class="lbl">Usuários</span></button>
+    <button class="nav-btn" data-view="settings" data-admin="1"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.2M12 18.8V21M21 12h-2.2M5.2 12H3M18.4 5.6l-1.5 1.5M7.1 16.9l-1.5 1.5M18.4 18.4l-1.5-1.5M7.1 7.1 5.6 5.6"/></svg><span class="lbl">Config</span></button>
+  </nav>
+
+  <main>
+
+    <!-- DASHBOARD -->
+    <section class="view active" data-view="dashboard">
+      <div class="view-head">
+        <div><h1 class="view-title">Painel</h1><div class="view-sub">Visão geral da transmissão em tempo real</div></div>
+      </div>
+      <div class="dash-grid">
+
+        <div class="panel hero-panel">
+          <div class="transport">
+            <div class="transport-ring" id="transportRing">
+              <button id="transportBtn" aria-label="Iniciar ou parar transmissão">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" id="transportIcon"><polygon points="6,4 20,12 6,20"/></svg>
+              </button>
+            </div>
+            <div class="transport-caption" id="transportCaption">Iniciar transmissão</div>
+          </div>
+          <div class="hero-stats">
+            <div class="stat"><b id="s_listeners">0</b><span>ouvintes agora</span></div>
+            <div class="stat"><b id="s_peak">0</b><span>pico hoje</span></div>
+            <div class="stat"><b id="s_bitrate">128</b><span>kbps</span></div>
+            <div class="stat"><b id="s_uptime">00:00:00</b><span>no ar</span></div>
+          </div>
+          <div class="vu" id="vuMeter"></div>
+        </div>
+
+        <div class="panel nowplaying">
+          <p class="panel-label"><span>Tocando agora</span><span id="npSource">AutoDJ</span></p>
+          <div class="np-row">
+            <div class="np-art"></div>
+            <div class="np-meta">
+              <b id="npTitle">—</b>
+              <span id="npMeta">Aguardando transmissão</span>
+            </div>
+          </div>
+          <div class="np-bar"><i id="npBar" style="width:0%"></i></div>
+        </div>
+
+        <div class="panel">
+          <p class="panel-label"><span>Fonte ao vivo</span></p>
+          <ul class="mini-list">
+            <li><span>Status</span><span class="tag" id="liveStatusTag">desconectado</span></li>
+            <li><span>Último DJ</span><span id="lastDj">—</span></li>
+            <li><span>Formato aceito</span><span>MP3 / AAC</span></li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <p class="panel-label"><span>Próximas na fila</span><span id="queueSource">AutoDJ</span></p>
+          <ul class="mini-list" id="queueList">
+            <li><span>—</span><span></span></li>
+            <li><span>—</span><span></span></li>
+            <li><span>—</span><span></span></li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <p class="panel-label"><span>Armazenamento</span></p>
+          <div class="storage-bar"><i id="storageBar" style="width:0%"></i></div>
+          <ul class="mini-list">
+            <li><span>Usado</span><span id="storageUsed">0 GB</span></li>
+            <li><span>Faixas na biblioteca</span><span id="storageTracks">0</span></li>
+          </ul>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- STREAM -->
+    <section class="view" data-view="stream">
+      <div class="view-head">
+        <div><h1 class="view-title">Configuração de stream</h1><div class="view-sub">Formato, qualidade e ponto de montagem</div></div>
+        <button class="btn primary" id="saveStreamBtn">Salvar alterações</button>
+      </div>
+      <div class="panel">
+        <div class="form-grid">
+          <div class="field">
+            <label for="fFormat">Formato de áudio</label>
+            <select id="fFormat"><option>MP3</option><option>AAC+</option><option>OGG Vorbis</option></select>
+            <span class="hint">AutoDJ reproduz MP3; AAC+/OGG ficam disponíveis para fonte ao vivo.</span>
+          </div>
+          <div class="field">
+            <label for="fBitrate">Bitrate</label>
+            <select id="fBitrate"><option value="64">64 kbps</option><option value="128" selected>128 kbps</option><option value="192">192 kbps</option><option value="320">320 kbps</option></select>
+          </div>
+          <div class="field">
+            <label for="fMount">Ponto de montagem</label>
+            <input id="fMount" type="text" value="/stream">
+          </div>
+          <div class="field">
+            <label for="fMax">Máximo de ouvintes simultâneos</label>
+            <input id="fMax" type="number" value="500">
+          </div>
+          <div class="field">
+            <label for="fTitle">Título exibido (metadata)</label>
+            <input id="fTitle" type="text" value="Rádio Aurora FM — ao vivo">
+          </div>
+          <div class="field">
+            <label for="fBuffer">Buffer de reprodução</label>
+            <div class="range-row"><input id="fBuffer" type="range" min="1" max="10" value="4"><span class="hint" id="fBufferVal">4s</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AUTODJ -->
+    <section class="view" data-view="autodj">
+      <div class="view-head">
+        <div><h1 class="view-title">AutoDJ</h1><div class="view-sub">Playlists e programação automática — o painel toca os arquivos da biblioteca</div></div>
+        <button class="btn ghost sm" id="newPlaylistBtn" data-admin="1">+ Nova playlist</button>
+      </div>
+      <div class="layout-2col">
+        <div class="panel" style="padding:10px;">
+          <div id="playlistSidebar"><span style="color:var(--text-3);font-size:12px;padding:8px;">Carregando…</span></div>
+        </div>
+        <div class="panel">
+          <p class="panel-label"><span id="playlistTitle">Selecione uma playlist</span><span id="playlistMode"></span></p>
+          <div id="playlistTracks"><div class="field" style="padding:10px 0;"><span class="hint">Escolha uma playlist ao lado para ver as faixas.</span></div></div>
+          <div style="margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn ghost sm" id="addTrackBtn" data-admin="1">+ Adicionar faixa</button>
+            <button class="btn ghost sm" id="renamePlaylistBtn" data-admin="1">Renomear</button>
+            <button class="btn stop sm" id="deletePlaylistBtn" data-admin="1">Excluir playlist</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVE -->
+    <section class="view" data-view="live">
+      <div class="view-head">
+        <div><h1 class="view-title">Fonte ao vivo</h1><div class="view-sub">Conecte seu programa de transmissão (BUTT, Mixxx, RadioDJ, etc.) pelo protocolo Icecast</div></div>
+      </div>
+      <div class="dash-grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="panel">
+          <p class="panel-label"><span>Credenciais de conexão</span><span>copiar</span></p>
+          <div class="cred-row"><span class="k">servidor</span><span class="v" id="lvHost">—</span></div>
+          <div class="cred-row"><span class="k">porta</span><span class="v" id="lvPort">—</span></div>
+          <div class="cred-row"><span class="k">ponto de montagem</span><span class="v" id="lvMount">/live</span></div>
+          <div class="cred-row"><span class="k">usuário</span><span class="v" id="lvUser">source</span></div>
+          <div class="cred-row"><span class="k">senha</span><span class="v" id="lvPass"><span id="pw">••••••••</span><button class="icon-btn" id="togglePw"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="2.6"/></svg></button><button class="icon-btn" id="copyCreds" title="Copiar credenciais"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="1.5"/><path d="M5 15V5a1 1 0 0 1 1-1h10"/></svg></button></span></div>
+          <div style="margin-top:12px;" data-admin="1">
+            <button class="btn ghost sm" id="changeLiveCreds">Alterar credenciais</button>
+          </div>
+        </div>
+        <div class="panel">
+          <p class="panel-label"><span>Locutores autorizados</span><span id="locutorCount">0</span></p>
+          <ul class="mini-list" id="locutorList"><li><span>—</span></li></ul>
+          <div style="margin-top:14px;" data-admin="1"><button class="btn ghost sm" id="addLocutorBtn">+ Adicionar locutor</button></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STATS -->
+    <section class="view" data-view="stats">
+      <div class="view-head">
+        <div><h1 class="view-title">Estatísticas</h1><div class="view-sub">Sessão atual e histórico</div></div>
+      </div>
+      <div class="kpi-row">
+        <div class="panel kpi"><b id="st_peak">0</b><span>pico de ouvintes</span></div>
+        <div class="panel kpi"><b id="st_uptime">00:00:00</b><span>tempo no ar</span></div>
+        <div class="panel kpi"><b id="st_total">0</b><span>conexões de ouvintes</span></div>
+        <div class="panel kpi"><b id="st_live">—</b><span>último DJ</span></div>
+      </div>
+      <div class="dash-grid" style="grid-template-columns: 1fr 1fr;">
+        <div class="panel">
+          <p class="panel-label"><span>Últimas faixas tocadas</span></p>
+          <ul class="mini-list" id="historyList"><li><span>—</span></li></ul>
+        </div>
+        <div class="panel">
+          <p class="panel-label"><span>Status da transmissão</span></p>
+          <ul class="mini-list" id="statusList">
+            <li><span>AutoDJ</span><span class="tag" id="st_autodj">desligado</span></li>
+            <li><span>Fonte ao vivo</span><span class="tag" id="st_livestatus">desconectado</span></li>
+            <li><span>Formato</span><span id="st_format">MP3</span></li>
+            <li><span>Mount</span><span id="st_mount">/stream</span></li>
+            <li><span>Player público</span><span id="st_link"><a href="/listen" target="_blank" style="color:var(--data);font-size:12px;">abrir</a></span></li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- MEDIA -->
+    <section class="view" data-view="media">
+      <div class="view-head">
+        <div><h1 class="view-title">Biblioteca de mídia</h1><div class="view-sub" id="mediaSub">0 faixas</div></div>
+        <button class="btn primary sm" id="uploadBtn" data-admin="1">Enviar arquivos</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Faixa</th><th>Duração</th><th>Formato</th><th>Tamanho</th><th>Playlists</th><th></th></tr></thead>
+          <tbody id="mediaTbody"><tr><td colspan="6" style="color:var(--text-3);">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- USERS -->
+    <section class="view" data-view="users">
+      <div class="view-head">
+        <div><h1 class="view-title">Usuários</h1><div class="view-sub">Contas com acesso ao console</div></div>
+        <button class="btn ghost sm" id="newUserBtn">+ Novo usuário</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Nome</th><th>Usuário</th><th>Papel</th><th>Status</th><th></th></tr></thead>
+          <tbody id="usersTbody"><tr><td colspan="5" style="color:var(--text-3);">Carregando…</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" data-view="settings">
+      <div class="view-head">
+        <div><h1 class="view-title">Configurações</h1><div class="view-sub">Preferências gerais da estação</div></div>
+        <button class="btn primary" id="saveSettingsBtn">Salvar configurações</button>
+      </div>
+      <div class="settings-block">
+        <div class="panel">
+          <div class="form-grid">
+            <div class="field"><label>Nome da rádio</label><input type="text" id="setName"></div>
+            <div class="field"><label>Fuso horário</label><select id="setTz"><option>America/Sao_Paulo</option><option>America/Manaus</option><option>Etc/UTC</option><option>Europe/Lisbon</option></select></div>
+            <div class="field" style="grid-column: span 2;"><label>Descrição</label><input type="text" id="setDesc"></div>
+            <div class="field" style="grid-column: span 2;"><label>Playlist do AutoDJ</label><select id="setPlaylist"></select></div>
+          </div>
+        </div>
+        <div class="setting-row"><div class="t"><b>Notificações de quedas de conexão</b><span>Avisar por e-mail quando a fonte ao vivo cair</span></div><span class="toggle on" id="tglDown"><i></i></span></div>
+        <div class="setting-row"><div class="t"><b>Backup automático da biblioteca</b><span>Cópia diária dos arquivos de mídia</span></div><span class="toggle on" id="tglBackup"><i></i></span></div>
+        <div class="setting-row"><div class="t"><b>Estatísticas públicas</b><span>Permitir que o site da rádio exiba ouvintes em tempo real</span></div><span class="toggle" id="tglPub"><i></i></span></div>
+        <div class="setting-row"><div class="t"><b>AutoDJ liga sozinho ao reiniciar</b><span>Retomar a transmissão automaticamente após reinício do servidor</span></div><span class="toggle on" id="tglAuto"><i></i></span></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<div class="modal-backdrop" id="modalBackdrop">
+  <div class="modal" id="modalBox"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

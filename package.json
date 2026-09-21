@@ -1,0 +1,19 @@
+{
+  "name": "aurora-radio-panel",
+  "version": "1.0.0",
+  "description": "Painel de controle próprio para rádio — console estilo Centova com transmissão de áudio real (AutoDJ + fonte ao vivo)",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/index.js",
+    "seed": "node server/seed.js",
+    "check": "node --check server/index.js && node --check server/api.js && node --check server/store.js && node --check server/auth.js && node --check server/seed.js && node --check server/stream/engine.js && node --check server/stream/source.js && node --check server/stream/broadcaster.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "multer": "^2.0.0"
+  }
+}

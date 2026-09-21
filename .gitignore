@@ -1,0 +1,12 @@
+# dependências
+node_modules/
+
+# dados do painel (banco + uploads) — não versionar
+data/
+.env
+
+# sistema
+.DS_Store
+Thumbs.db
+*.log
+npm-debug.log*

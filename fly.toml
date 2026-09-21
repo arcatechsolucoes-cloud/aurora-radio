@@ -1,0 +1,31 @@
+# fly.toml — Rádio Aurora FM (gerado para deploy no Fly.io)
+# volume persistente "data" montado em /data (banco + uploads)
+
+app = "aurora-radio"
+primary_region = "gru"
+
+[build]
+
+[env]
+  # host público apresentado nas credenciais da fonte ao vivo
+  PUBLIC_HOST = "aurora-radio.fly.dev"
+  # o SESSION_SECRET NÃO fica versionado — defina antes do deploy:
+  #   fly secrets set SESSION_SECRET="<frase-longa-aleatoria>"
+  # dados persistentes (volume)
+  DATA_DIR = "/data"
+  # fonte ao vivo usa HTTP simples (porta 80) — softwares de locução não falam HTTPS
+  STREAM_PORT = "80"
+
+[http_service]
+  internal_port = 3000
+  force_https = false          # deixa a porta 80 http para a fonte dos locutores
+  auto_stop_machines = "off"   # trânsito 24h — nunca dorme
+  auto_start_machines = true
+  min_machines_running = 1
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 1000
+
+[[mounts]]
+  source = "data"
+  destination = "/data"

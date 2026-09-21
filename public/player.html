@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ouvir — Rádio Aurora FM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="player-shell">
+  <div class="player-card">
+    <div class="brand" style="justify-content:center;">
+      <div class="brand-mark"></div>
+      <div>
+        <div class="brand-text" id="stationName">Rádio Aurora FM</div>
+        <div class="brand-sub">ao vivo · 24 horas</div>
+      </div>
+    </div>
+    <div class="player-now" id="nowPlaying">Carregando a transmissão…</div>
+    <div class="audio-wrap">
+      <audio id="audio" controls playsinline preload="none">
+        <source src="/stream" type="audio/mpeg">
+      </audio>
+    </div>
+    <div class="player-state">
+      <span><b id="statListeners">0</b> ouvintes</span>
+      <span id="statMode" style="color:var(--text-3);">fora do ar</span>
+    </div>
+    <div style="margin-top:18px;font-size:11px;color:var(--text-3);font-family:var(--font-mono);">
+      Página pública do player — compartilhe este link com seus ouvintes.
+    </div>
+  </div>
+</div>
+<script>
+const audio = document.getElementById('audio');
+const nowEl = document.getElementById('nowPlaying');
+const lisEl = document.getElementById('statListeners');
+const modeEl = document.getElementById('statMode');
+
+async function refresh() {
+  try {
+    const res = await fetch('/stream.json');
+    const d = await res.json();
+    lisEl.textContent = d.listeners;
+    modeEl.textContent = d.live ? 'fonte ao vivo' : d.running ? 'AutoDJ no ar' : 'fora do ar';
+    modeEl.style.color = d.onAir ? 'var(--live)' : 'var(--text-3)';
+    if (d.nowPlaying) nowEl.textContent = d.nowPlaying.title;
+    const on = document.getElementById('stationName');
+    if (d.live) {
+      audio.setAttribute('aria-label', 'Transmissão ao vivo');
+    }
+    document.title = (d.nowPlaying ? d.nowPlaying.title + ' · ' : '') + 'Rádio Aurora FM';
+  } catch (_) {}
+  setTimeout(refresh, 5000);
+}
+
+audio.addEventListener('playing', () => {
+  nowEl.textContent = nowEl.textContent === 'Carregando a transmissão…' ? 'No ar' : nowEl.textContent;
+});
+refresh();
+</script>
+</body>
+</html>

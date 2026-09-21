@@ -1,0 +1,21 @@
+# render.yaml — configuração automática do painel no Render (nível gratuito, sem cartão)
+# Ao conectar este repositório no Render, o serviço já nasce configurado.
+
+services:
+  - type: web
+    name: aurora-radio
+    runtime: node
+    plan: free
+    autoDeploy: true
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /login
+    envVars:
+      - key: PUBLIC_HOST
+        value: https://aurora-radio.onrender.com
+      - key: STREAM_PORT
+        value: "80"
+      - key: NODE_ENV
+        value: production
+      - key: SESSION_SECRET
+        generateValue: true

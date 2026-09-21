@@ -56,7 +56,10 @@ function openModal(html) {
   return box;
 }
 function closeModal() {
-  document.getElementById('modalBackdrop').classList.remove('show');
+  const backdrop = document.getElementById('modalBackdrop');
+  const box = document.getElementById('modalBox');
+  box.classList.remove('modal--wide');
+  backdrop.classList.remove('show');
 }
 
 // ---------- navegação ----------
@@ -281,7 +284,7 @@ function renderPlaylist() {
     .map(
       (m, i) => `<div class="track-row">
         <span class="track-idx">${String(i + 1).padStart(2, '0')}</span>
-        <span>${esc(m.title)}</span>
+        <span style="display:flex;align-items:center;gap:8px;min-width:0;"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(m.title)}</span><span class="track-type-tag">${esc(typeLabel(m.type))}</span></span>
         <span class="track-dur">${esc(m.duration)}</span>
         <button class="icon-btn danger remove-track" data-id="${esc(m.id)}" title="Remover da playlist"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       </div>`
@@ -318,26 +321,169 @@ async function toggleShuffle() {
   renderPlaylist();
 }
 
-document.getElementById('newPlaylistBtn').addEventListener('click', async () => {
-  openModal(`
-    <h3>Nova playlist</h3>
-    <div class="field"><label>Nome</label><input id="plName" type="text" placeholder="Ex.: Louvor da Tarde"></div>
-    <div class="form-actions">
+// ---------- programador de sequência (construtor de playlist) ----------
+function openSequencer(opts) {
+  const { title = 'Programar sequência', playlistName = '', initialIds = [], saveLabel = 'Salvar playlist', onSave } = opts || {};
+  const box = openModal(`
+    <h3>${esc(title)}</h3>
+    <div class="field"><label>Nome da playlist</label><input id="seqName" type="text" value="${esc(playlistName)}" placeholder="Ex.: Programação da Manhã"></div>
+    <div class="field"><label>Tipos</label><div class="chip-row" id="seqChips" style="margin:0;"></div></div>
+    <div class="seq-wrap">
+      <div class="seq-pane">
+        <h4>Biblioteca <span style="opacity:.6" id="seqLibCount"></span></h4>
+        <div id="seqLibList"><div class="seq-empty">Carregando…</div></div>
+      </div>
+      <div class="seq-pane">
+        <h4>Sequência <span style="opacity:.6" id="seqCount">0 faixas</span></h4>
+        <div id="seqList"><div class="seq-empty">Clique em <b>+</b> nas faixas da biblioteca ao lado para montar a ordem. Use ↑ ↓ para reordenar.</div></div>
+      </div>
+    </div>
+    <div class="form-actions" style="margin-top:16px;">
       <button class="btn ghost" onclick="closeModal()">Cancelar</button>
-      <button class="btn primary" id="plOk">Criar</button>
+      <button class="btn primary" id="seqOk">${esc(saveLabel)}</button>
     </div>`);
-  document.getElementById('plOk').addEventListener('click', async () => {
-    const name = document.getElementById('plName').value.trim();
-    if (!name) return toast('Informe um nome');
-    const p = await api('/playlists', {
-      method: 'POST',
-      body: JSON.stringify({ name, shuffle: true, trackIds: [] }),
+  box.classList.add('modal--wide');
+
+  const state = { filter: 'all', ids: initialIds.slice() };
+
+  const renderChips = () => {
+    const chips = [{ id: 'all', label: 'Todas' }, ...MEDIA_TYPES]
+      .map((t) => `<button class="chip ${state.filter === t.id ? 'on' : ''}" data-f="${esc(t.id)}">${esc(t.label)}</button>`)
+      .join('');
+    const row = document.getElementById('seqChips');
+    row.innerHTML = chips;
+    row.querySelectorAll('.chip').forEach((el) => {
+      el.addEventListener('click', () => {
+        state.filter = el.dataset.f;
+        renderChips();
+        renderLib();
+      });
     });
-    closeModal();
-    await loadPlaylists();
-    CURRENT_PLAYLIST = p;
-    renderPlaylist();
-    toast('Playlist criada');
+  };
+
+  const renderLib = () => {
+    const list = libraryCache.filter((m) => state.filter === 'all' || normType(m.type) === state.filter);
+    document.getElementById('seqLibCount').textContent = list.length ? `(${list.length})` : '';
+    const el = document.getElementById('seqLibList');
+    if (list.length === 0) {
+      el.innerHTML = '<div class="seq-empty">Nenhuma faixa nesta categoria. Envie músicas, vinhetas, programetes e hora certa na aba Mídia.</div>';
+      return;
+    }
+    el.innerHTML = list
+      .map(
+        (m) => `<div class="seq-item">
+          <span class="idx">${esc(typeLabel(m.type))}</span>
+          <span class="ttl">${esc(m.title)}<span style="color:var(--text-3);font-family:var(--font-mono);font-size:11px;margin-left:8px;">${esc(m.duration)}</span></span>
+          <button class="add-one" data-id="${esc(m.id)}" title="Adicionar à sequência">+</button>
+        </div>`
+      )
+      .join('');
+    el.querySelectorAll('.add-one').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const m = libraryCache.find((x) => String(x.id) === String(btn.dataset.id));
+        if (!m) return;
+        state.ids.push(m.id);
+        renderSeq();
+        toast('Adicionado: ' + m.title);
+      });
+    });
+  };
+
+  const renderSeq = () => {
+    const byId = new Map(libraryCache.map((m) => [String(m.id), m]));
+    const el = document.getElementById('seqList');
+    document.getElementById('seqCount').textContent = state.ids.length + (state.ids.length === 1 ? ' faixa' : ' faixas');
+    if (state.ids.length === 0) {
+      el.innerHTML = '<div class="seq-empty">Sequência vazia.</div>';
+      return;
+    }
+    el.innerHTML = state.ids
+      .map((id, i) => {
+        const m = byId.get(String(id));
+        if (!m) return '';
+        return `<div class="seq-item">
+          <span class="idx">${String(i + 1).padStart(2, '0')}</span>
+          <span class="ttl">${esc(m.title)}</span>
+          <span class="dur">${esc(m.duration)}</span>
+          <span style="display:inline-flex;gap:4px;white-space:nowrap;">
+            <button class="seq-tool up ${i === 0 ? 'off' : ''}" data-i="${i}" title="Subir">↑</button>
+            <button class="seq-tool down ${i === state.ids.length - 1 ? 'off' : ''}" data-i="${i}" title="Descer">↓</button>
+            <button class="seq-tool danger rm" data-i="${i}" title="Remover">✕</button>
+          </span>
+        </div>`;
+      })
+      .join('');
+    el.querySelectorAll('.up').forEach((b) => b.addEventListener('click', () => seqMove(+b.dataset.i, -1)));
+    el.querySelectorAll('.down').forEach((b) => b.addEventListener('click', () => seqMove(+b.dataset.i, 1)));
+    el.querySelectorAll('.rm').forEach((b) =>
+      b.addEventListener('click', () => {
+        state.ids.splice(+b.dataset.i, 1);
+        renderSeq();
+      })
+    );
+  };
+
+  const seqMove = (i, dir) => {
+    const j = i + dir;
+    if (j < 0 || j >= state.ids.length) return;
+    [state.ids[i], state.ids[j]] = [state.ids[j], state.ids[i]];
+    renderSeq();
+  };
+
+  renderChips();
+  renderLib();
+  renderSeq();
+
+  document.getElementById('seqOk').addEventListener('click', async () => {
+    const name = document.getElementById('seqName').value.trim();
+    if (!name) return toast('Informe o nome da playlist');
+    if (state.ids.length === 0) return toast('Adicione pelo menos uma faixa à sequência');
+    const okBtn = document.getElementById('seqOk');
+    okBtn.disabled = true;
+    try {
+      await onSave(name, state.ids.slice());
+      closeModal();
+      await loadPlaylists();
+      toast('Playlist salva');
+    } catch (e) {
+      toast(e.message);
+      okBtn.disabled = false;
+    }
+  });
+}
+
+document.getElementById('newPlaylistBtn').addEventListener('click', () => {
+  openSequencer({
+    title: 'Nova playlist programada',
+    playlistName: '',
+    initialIds: [],
+    saveLabel: 'Criar playlist',
+    onSave: async (name, ids) => {
+      const p = await api('/playlists', {
+        method: 'POST',
+        body: JSON.stringify({ name, shuffle: false, trackIds: ids }),
+      });
+      CURRENT_PLAYLIST = p;
+    },
+  });
+});
+
+document.getElementById('programOrderBtn').addEventListener('click', () => {
+  if (!CURRENT_PLAYLIST) return toast('Selecione uma playlist primeiro');
+  openSequencer({
+    title: 'Programar sequência — ' + CURRENT_PLAYLIST.name,
+    playlistName: CURRENT_PLAYLIST.name,
+    initialIds: CURRENT_PLAYLIST.trackIds || [],
+    saveLabel: 'Salvar sequência',
+    onSave: async (name, ids) => {
+      await api('/playlists/' + CURRENT_PLAYLIST.id, {
+        method: 'PATCH',
+        body: JSON.stringify({ name, shuffle: false, trackIds: ids }),
+      });
+      CURRENT_PLAYLIST.name = name;
+      CURRENT_PLAYLIST.trackIds = ids;
+      CURRENT_PLAYLIST.shuffle = false;
+    },
   });
 });
 
@@ -407,19 +553,57 @@ async function openTrackPicker() {
 }
 
 // ---------- mídia ----------
-async function loadMedia() {
-  try {
-    const items = await api('/media');
-    document.getElementById('mediaSub').textContent = items.length + ' faixas';
-    const tbody = document.getElementById('mediaTbody');
-    if (items.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" style="color:var(--text-3);">Biblioteca vazia — envie seus primeiros arquivos.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = items
-      .map(
-        (m) => `<tr>
-          <td><a href="/api/media/${esc(m.id)}/file" target="_blank" style="color:var(--text-1);text-decoration:none;" title="Ouvir prévia">${esc(m.title)}</a></td>
+const MEDIA_TYPES = [
+  { id: 'musica', label: 'Música' },
+  { id: 'vinheta', label: 'Vinheta' },
+  { id: 'programete', label: 'Programete' },
+  { id: 'hora_certa', label: 'Hora certa' },
+];
+const normType = (t) => (MEDIA_TYPES.some((x) => x.id === t) ? t : 'musica');
+const typeLabel = (t) => (MEDIA_TYPES.find((x) => x.id === t) || {}).label || 'Música';
+
+let mediaFilter = 'all';
+
+function renderMediaChips(items) {
+  const counts = { all: items.length };
+  MEDIA_TYPES.forEach((t) => (counts[t.id] = 0));
+  items.forEach((m) => counts[normType(m.type)]++);
+  const row = document.getElementById('mediaChips');
+  const chips = [{ id: 'all', label: 'Todas' }, ...MEDIA_TYPES]
+    .map(
+      (t) =>
+        `<button class="chip ${mediaFilter === t.id ? 'on' : ''}" data-f="${esc(t.id)}">${esc(t.label)}<b>${counts[t.id] ?? 0}</b></button>`
+    )
+    .join('');
+  row.innerHTML = chips;
+  row.querySelectorAll('.chip').forEach((el) => {
+    el.addEventListener('click', () => {
+      mediaFilter = el.dataset.f;
+      renderMediaChips(items);
+      renderMediaRows(items);
+    });
+  });
+}
+
+function renderMediaRows(items) {
+  const filtered = mediaFilter === 'all' ? items : items.filter((m) => normType(m.type) === mediaFilter);
+  const tbody = document.getElementById('mediaTbody');
+  if (filtered.length === 0) {
+    tbody.innerHTML =
+      '<tr><td colspan="7" style="color:var(--text-3);">' +
+      (mediaFilter === 'all'
+        ? 'Biblioteca vazia — envie seus primeiros arquivos.'
+        : 'Nenhuma faixa nesta categoria — envie arquivos ou mude o tipo de alguma faixa.') +
+      '</td></tr>';
+    return;
+  }
+  tbody.innerHTML = filtered
+    .map(
+      (m) => `<tr>
+          <td><a href="/api/media/${esc(m.id)}/file" target="_blank" style="color:var(--text-1);text-decoration:none;display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:300px;" title="Ouvir prévia">${esc(m.title)}</a></td>
+          <td><select class="media-type" data-id="${esc(m.id)}" title="Mudar tipo">${MEDIA_TYPES.map(
+            (t) => `<option value="${esc(t.id)}" ${normType(m.type) === t.id ? 'selected' : ''}>${esc(t.label)}</option>`
+          ).join('')}</select></td>
           <td>${esc(m.duration)}</td>
           <td>${esc(m.format)}</td>
           <td>${String(m.size).replace('.', ',')} MB</td>
@@ -429,36 +613,71 @@ async function loadMedia() {
             <button class="icon-btn danger del-media" data-id="${esc(m.id)}" title="Excluir"><svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v13a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V7"/></svg></button>
           </td>
         </tr>`
-      )
-      .join('');
+    )
+    .join('');
 
-    tbody.querySelectorAll('.play-media').forEach((el) => {
-      el.addEventListener('click', () => {
-        window.open('/api/media/' + el.dataset.id + '/file', '_blank');
-      });
+  tbody.querySelectorAll('.play-media').forEach((el) => {
+    el.addEventListener('click', () => {
+      window.open('/api/media/' + el.dataset.id + '/file', '_blank');
     });
+  });
 
-    tbody.querySelectorAll('.del-media').forEach((el) => {
-      el.addEventListener('click', async () => {
-        if (!confirm('Excluir este arquivo da biblioteca?')) return;
-        await api('/media/' + el.dataset.id, { method: 'DELETE' });
-        loadMedia();
-        loadPlaylists();
-        toast('Arquivo excluído');
-      });
+  tbody.querySelectorAll('.del-media').forEach((el) => {
+    el.addEventListener('click', async () => {
+      if (!confirm('Excluir este arquivo da biblioteca?')) return;
+      await api('/media/' + el.dataset.id, { method: 'DELETE' });
+      loadMedia();
+      loadPlaylists();
+      toast('Arquivo excluído');
     });
+  });
+
+  tbody.querySelectorAll('.media-type').forEach((el) => {
+    el.addEventListener('change', async () => {
+      const id = el.dataset.id;
+      const type = normType(el.value);
+      await api('/media/' + id, { method: 'PATCH', body: JSON.stringify({ type }) });
+      const item = libraryCache.find((m) => String(m.id) === id);
+      if (item) item.type = type;
+      renderMediaChips(items);
+      toast('Tipo atualizado');
+    });
+  });
+}
+
+async function loadMedia() {
+  try {
+    const items = await api('/media');
+    libraryCache = items.map((m) => ({ ...m, type: normType(m.type) }));
+    document.getElementById('mediaSub').textContent = libraryCache.length + ' faixas';
+    renderMediaChips(libraryCache);
+    renderMediaRows(libraryCache);
   } catch (_) {}
 }
 
 document.getElementById('uploadBtn').addEventListener('click', () => {
+  let uploadType = 'musica';
   openModal(`
     <h3>Enviar arquivos de áudio</h3>
+    <div class="field"><label>Tipo das mídias</label>
+      <div class="chip-row" id="upTypes" style="margin:0;">${MEDIA_TYPES.map(
+        (t) => `<button class="chip ${t.id === 'musica' ? 'on' : ''}" data-t="${esc(t.id)}">${esc(t.label)}</button>`
+      ).join('')}</div>
+      <span class="hint">Selecione a categoria antes de enviar: cada arquivo entra no tipo escolhido.</span>
+    </div>
     <div class="dropzone" id="dropzone">Arraste arquivos aqui<br>ou clique para escolher<br><span style="font-size:11px;">MP3, AAC, OGG, WAV, FLAC • até 200 MB</span></div>
     <ul class="mini-list" id="uploadList" style="margin-top:12px;"></ul>
     <div class="form-actions">
       <button class="btn ghost" onclick="closeModal()">Fechar</button>
       <button class="btn primary" id="uploadOk" disabled>Enviar</button>
     </div>`);
+  const typeRow = document.getElementById('upTypes');
+  typeRow.querySelectorAll('.chip').forEach((el) => {
+    el.addEventListener('click', () => {
+      uploadType = el.dataset.t;
+      typeRow.querySelectorAll('.chip').forEach((x) => x.classList.toggle('on', x === el));
+    });
+  });
   const dz = document.getElementById('dropzone');
   const fileInput = document.createElement('input');
   fileInput.type = 'file';
@@ -487,11 +706,12 @@ document.getElementById('uploadBtn').addEventListener('click', () => {
   okBtn.addEventListener('click', async () => {
     const fd = new FormData();
     files.forEach((f) => fd.append('files', f));
+    fd.append('type', uploadType);
     okBtn.disabled = true;
     okBtn.textContent = 'Enviando…';
     try {
       const r = await api('/media/upload', { method: 'POST', body: fd });
-      toast(r.created.length + ' arquivo(s) enviado(s)');
+      toast(r.created.length + ' arquivo(s) enviado(s) como ' + typeLabel(uploadType).toLowerCase());
       closeModal();
       libraryCache = await api('/media');
       loadMedia();

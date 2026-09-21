@@ -148,8 +148,11 @@
     <!-- AUTODJ -->
     <section class="view" data-view="autodj">
       <div class="view-head">
-        <div><h1 class="view-title">AutoDJ</h1><div class="view-sub">Playlists e programação automática — o painel toca os arquivos da biblioteca</div></div>
-        <button class="btn ghost sm" id="newPlaylistBtn" data-admin="1">+ Nova playlist</button>
+        <div><h1 class="view-title">AutoDJ</h1><div class="view-sub">Playlists e programação automática — monte a sequência manualmente e o painel toca em ordem</div></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn ghost sm" id="programOrderBtn" data-admin="1">Programar sequência</button>
+          <button class="btn ghost sm" id="newPlaylistBtn" data-admin="1">+ Nova playlist</button>
+        </div>
       </div>
       <div class="layout-2col">
         <div class="panel" style="padding:10px;">
@@ -237,10 +240,11 @@
         <div><h1 class="view-title">Biblioteca de mídia</h1><div class="view-sub" id="mediaSub">0 faixas</div></div>
         <button class="btn primary sm" id="uploadBtn" data-admin="1">Enviar arquivos</button>
       </div>
+      <div class="chip-row" id="mediaChips"></div>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Faixa</th><th>Duração</th><th>Formato</th><th>Tamanho</th><th>Playlists</th><th></th></tr></thead>
-          <tbody id="mediaTbody"><tr><td colspan="6" style="color:var(--text-3);">Carregando…</td></tr></tbody>
+          <thead><tr><th>Faixa</th><th>Tipo</th><th>Duração</th><th>Formato</th><th>Tamanho</th><th>Playlists</th><th></th></tr></thead>
+          <tbody id="mediaTbody"><tr><td colspan="7" style="color:var(--text-3);">Carregando…</td></tr></tbody>
         </table>
       </div>
     </section>

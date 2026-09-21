@@ -45,6 +45,10 @@ module.exports = function createApi(engine) {
     };
   }
 
+  // ---------- tipos de mídia ----------
+  const MEDIA_TYPES = ['musica', 'vinheta', 'programete', 'hora_certa'];
+  const normType = (t) => (MEDIA_TYPES.includes(String(t)) ? String(t) : 'musica');
+
   // ---------- upload de mídia ----------
   const storage = multer.diskStorage({
     destination(req, file, cb) {
@@ -184,11 +188,15 @@ module.exports = function createApi(engine) {
 
   // ---------- mídia ----------
   router.get('/media', auth.requireAuth, (req, res) => {
-    const bits = new Map(
-      store.getPlaylists().flatMap((p) => p.trackIds.map((id) => [String(id), (bits.get(String(id)) || 0) + 1]))
-    );
+    const bits = new Map();
+    for (const p of store.getPlaylists()) {
+      for (const id of p.trackIds) {
+        bits.set(String(id), (bits.get(String(id)) || 0) + 1);
+      }
+    }
     const items = store.getMedia().map((m) => ({
       ...m,
+      type: normType(m.type),
       playlistsCount: bits.get(String(m.id)) || 0,
     }));
     res.json(items);
@@ -199,12 +207,14 @@ module.exports = function createApi(engine) {
       return res.status(400).json({ error: 'Nenhum arquivo enviado' });
     }
     const bitrate = store.getStreamCfg().bitrate || 128;
+    const type = normType(req.body && req.body.type);
     const created = req.files.map((f) => {
       const ext = path.extname(f.originalname || '').toLowerCase().replace('.', '').toUpperCase() || 'MP3';
       const seconds = (f.size * 8) / (bitrate * 1000);
       const m = {
         id: 'm_' + crypto.randomBytes(4).toString('hex'),
         title: path.basename(f.originalname || 'faixa', path.extname(f.originalname || '')).slice(0, 120) || 'Faixa',
+        type, // musica | vinheta | programete | hora_certa
         format: ext,
         duration: fmtDuration(seconds),
         size: +(f.size / 1e6).toFixed(1),
@@ -247,6 +257,7 @@ module.exports = function createApi(engine) {
     const m = store.getMedia().find((x) => x.id === req.params.id);
     if (!m) return res.status(404).json({ error: 'Arquivo não encontrado' });
     if (req.body && req.body.title !== undefined) m.title = String(req.body.title).slice(0, 120);
+    if (req.body && req.body.type !== undefined) m.type = normType(req.body.type);
     store.save();
     res.json(m);
   });

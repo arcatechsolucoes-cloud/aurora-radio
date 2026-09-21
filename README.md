@@ -18,8 +18,8 @@ Funciona **pela internet** em provedores gratuitos (Fly.io, Oracle Cloud Free, R
 | 📻 Fonte ao vivo | Locutores conectam pelo protocolo Icecast na mesma porta do painel e assumem a transmissão |
 | 🎶 AutoDJ | Toca playlists da biblioteca em sequência ou aleatório; quando a fonte ao vivo cai, o AutoDJ retoma |
 | 🎚 Stream | Configura formato, bitrate, mount, limites e metadata |
-| 🗂 Playlists | Criar, renomear, excluir, montar a fila com faixas da biblioteca |
-| 🎧 Mídia | Upload de MP3/AAC/OGG/WAV/FLAC, prévia, exclusão |
+| 🗂 Playlists | **Programador de sequência**: monte a ordem manualmente (onde colocar músicas, vinhetas, programetes e hora certa) e salve a playlist completa |
+| 🎧 Mídia | Upload **categorizado por tipo** (Música, Vinheta, Programete, Hora certa), filtro por tipo, mudar tipo depois, prévia, exclusão |
 | 👥 Usuários | Contas admin/locutor, bloqueio, redefinição de senha |
 | ⚙️ Config | Nome da rádio, fuso, description, playlist padrão do AutoDJ, preferências |
 | 📈 Estatísticas | Pico de ouvintes, conexões, histórico de faixas |
@@ -116,6 +116,26 @@ Copie `.env.example` para `.env` e ajuste:
 > **Nota v1:** o AutoDJ reproduz apenas arquivos **MP3** (o stream é MP3 direto para o navegador).
 > AAC/OGG/WAV podem ser enviados e usados como fonte ao vivo, mas não no AutoDJ ainda.
 > O locutor do navegador envia MP3, então é 100% compatível com o player.
+
+## Organizar mídia por tipo e programar playlists
+
+**Enviar mídia categorizada:**
+
+1. Aba **Mídia** → **Enviar arquivos**.
+2. Escolha o **tipo** antes de enviar: **Música, Vinheta, Programete ou Hora certa**.
+3. Cada arquivo entra na categoria escolhida (dá para mudar o tipo depois, pelo seletor na tabela).
+4. Use os **filtros** acima da tabela para ver só um tipo de cada vez.
+
+**Montar uma playlist na ordem que você quiser (programação):**
+
+1. Aba **AutoDJ** → **+ Nova playlist**.
+2. Com o **Programador de sequência**: filtre a biblioteca por tipo, clique em **+** nas faixas
+   para adicioná-las à sequência e use **↑ ↓** para reordenar (e ✕ para remover).
+3. Digite o nome, clique em **Criar playlist** — a playlist nasce completa e **tocará sempre
+   nessa ordem** (atenção: no modo programado o aleatório fica desligado).
+4. Para reprogramar uma playlist existente: selecione-a e use **Programar sequência**.
+
+> Para o AutoDJ usar a playlist programada, selecione-a em **Config → Playlist do AutoDJ**.
 
 ## Estrutura do projeto
 

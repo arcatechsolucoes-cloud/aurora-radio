@@ -90,6 +90,7 @@ function run() {
       {
         id: 'm_espirito',
         title: 'Vem, Espírito Santo',
+        type: 'musica',
         format: 'MP3',
         duration: '3:42',
         size: 5.1,
@@ -99,6 +100,7 @@ function run() {
       {
         id: 'm_cordeiro',
         title: 'Digno é o Cordeiro',
+        type: 'musica',
         format: 'MP3',
         duration: '4:10',
         size: 5.8,
@@ -108,6 +110,7 @@ function run() {
       {
         id: 'm_coracao',
         title: 'Coração em Chamas',
+        type: 'musica',
         format: 'MP3',
         duration: '3:15',
         size: 4.4,
@@ -115,8 +118,29 @@ function run() {
         uploadedAt: agora,
       },
       {
+        id: 'm_vinheta',
+        title: 'Vinheta Aurora FM',
+        type: 'vinheta',
+        format: 'MP3',
+        duration: '0:07',
+        size: 0.2,
+        file: 'vinheta-aurora.mp3',
+        uploadedAt: agora,
+      },
+      {
+        id: 'm_hora',
+        title: 'Hora Certa — marcação 9h',
+        type: 'hora_certa',
+        format: 'MP3',
+        duration: '0:06',
+        size: 0.2,
+        file: 'hora-certa-9h.mp3',
+        uploadedAt: agora,
+      },
+      {
         id: 'm_anuncio',
         title: 'Anúncio — Culto de domingo',
+        type: 'programete',
         format: 'MP3',
         duration: '0:38',
         size: 0.9,
@@ -124,7 +148,9 @@ function run() {
         uploadedAt: agora,
       },
     ];
-    db.playlists[0].trackIds = ['m_espirito', 'm_cordeiro', 'm_coracao', 'm_anuncio'];
+    // exemplo de sequência programada (música → hora certa → música → vinheta → programete)
+    db.playlists[0].trackIds = ['m_vinheta', 'm_espirito', 'm_hora', 'm_cordeiro', 'm_vinheta', 'm_anuncio'];
+    db.playlists[0].shuffle = false;
   }
 
   store.save(true);
